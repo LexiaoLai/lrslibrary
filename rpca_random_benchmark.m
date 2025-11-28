@@ -9,20 +9,19 @@ clear; clc;
 % User-configurable parameters
 % ------------------------------------------------------------
 num_trials = 1;           % Number of random instances to average over
-m = 1000;                  % Number of rows
-n = 1000;                  % Number of columns
+m = 1000;                 % Number of rows
+n = 1000;                 % Number of columns
 r_true = 5;               % True rank of the low-rank component
 sparsity = 0.1;           % Fraction of corrupted entries in the sparse part
 sparse_scale = 10;        % Magnitude of sparse corruption
-algorithms = { ...
-    'Subgradient', ...    % Adaptive subgradient method on factors
-    'SGD', ...            % Stochastic subgradient method on factors
-    'PCP', ...
-    'noncvxRPCA',...
-    % 'GoDec' ...           % Go Decomposition
-        % 'FPCP', ...           % Fast Principal Component Pursuit
-    % 'GoDec' ...           % Go Decomposition
-};
+
+alg_list = get_algorithm_list('RPCA');
+algorithms = alg_list(:, 1); % Algorithm IDs
+algorithms = algorithms(~strcmp(algorithms, '-')); % Remove separators
+algorithms = algorithms(~strcmpi(algorithms, 'SGD')); % Skip SGD
+
+safe_algorithms = cellfun(@matlab.lang.makeValidName, algorithms, ...
+    'UniformOutput', false);
 
 % Optional: set to a fixed value for reproducibility
 base_seed = 1;
@@ -39,10 +38,12 @@ fprintf('Running RPCA benchmark with %d trials on %dx%d matrices (rank=%d, spars
 results = struct();
 for a = 1:numel(algorithms)
     alg = algorithms{a};
-    results.(alg).time = zeros(num_trials, 1);
-    results.(alg).rel_err_L = zeros(num_trials, 1);
-    results.(alg).rel_err_S = zeros(num_trials, 1);
-    results.(alg).success = false(num_trials, 1);
+    key = safe_algorithms{a};
+    results.(key).id = alg;
+    results.(key).time = zeros(num_trials, 1);
+    results.(key).rel_err_L = zeros(num_trials, 1);
+    results.(key).rel_err_S = zeros(num_trials, 1);
+    results.(key).success = false(num_trials, 1);
 end
 
 for t = 1:num_trials
@@ -52,34 +53,35 @@ for t = 1:num_trials
     fprintf('\nTrial %d/%d\n', t, num_trials);
     for a = 1:numel(algorithms)
         alg = algorithms{a};
+        key = safe_algorithms{a};
         fprintf('  - %s...', alg);
         params = struct('rank', r_true);
         try
             out = run_algorithm('RPCA', alg, M, params);
-            results.(alg).time(t) = out.cputime;
+            results.(key).time(t) = out.cputime;
 
             L_norm = norm(L_true, 'fro');
             if isfield(out, 'L') && ~isempty(out.L) && L_norm > 0
-                results.(alg).rel_err_L(t) = norm(out.L - L_true, 'fro') / L_norm;
+                results.(key).rel_err_L(t) = norm(out.L - L_true, 'fro') / L_norm;
             else
-                results.(alg).rel_err_L(t) = NaN;
+                results.(key).rel_err_L(t) = NaN;
             end
 
             S_norm = norm(S_true, 'fro');
             if isfield(out, 'S') && ~isempty(out.S) && S_norm > 0
-                results.(alg).rel_err_S(t) = norm(out.S - S_true, 'fro') / S_norm;
+                results.(key).rel_err_S(t) = norm(out.S - S_true, 'fro') / S_norm;
             else
-                results.(alg).rel_err_S(t) = NaN;
+                results.(key).rel_err_S(t) = NaN;
             end
 
-            results.(alg).success(t) = true;
+            results.(key).success(t) = true;
             fprintf(' done (time = %.3fs)\n', out.cputime);
         catch ME
             fprintf('\n    Warning: %s failed with message: %s\n', alg, ME.message);
-            results.(alg).time(t) = NaN;
-            results.(alg).rel_err_L(t) = NaN;
-            results.(alg).rel_err_S(t) = NaN;
-            results.(alg).success(t) = false;
+            results.(key).time(t) = NaN;
+            results.(key).rel_err_L(t) = NaN;
+            results.(key).rel_err_S(t) = NaN;
+            results.(key).success(t) = false;
         end
     end
 end
@@ -92,11 +94,12 @@ fprintf('%-15s  %-12s  %-15s  %-15s  %s\n', 'Algorithm', 'Avg Time (s)', ...
     'Avg RelErr(L)', 'Avg RelErr(S)', 'Success Rate');
 fprintf('%s\n', repmat('-', 1, 70));
 for a = 1:numel(algorithms)
-    alg = algorithms{a};
-    time_vals = results.(alg).time;
-    relL_vals = results.(alg).rel_err_L;
-    relS_vals = results.(alg).rel_err_S;
-    success_vals = results.(alg).success;
+    key = safe_algorithms{a};
+    alg = results.(key).id;
+    time_vals = results.(key).time;
+    relL_vals = results.(key).rel_err_L;
+    relS_vals = results.(key).rel_err_S;
+    success_vals = results.(key).success;
 
     avg_time = mean_omit_nan(time_vals);
     avg_relL = mean_omit_nan(relL_vals);
