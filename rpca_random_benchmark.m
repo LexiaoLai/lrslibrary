@@ -8,6 +8,9 @@ clear; clc;
 % ------------------------------------------------------------
 % User-configurable parameters
 % ------------------------------------------------------------
+num_trials = 3;           % Number of random instances to average over
+m = 100;                  % Number of rows
+n = 100;                  % Number of columns
 num_trials = 1;           % Number of random instances to average over
 m = 1000;                  % Number of rows
 n = 1000;                  % Number of columns
@@ -17,6 +20,7 @@ sparse_scale = 10;        % Magnitude of sparse corruption
 algorithms = { ...
     'Subgradient', ...    % Adaptive subgradient method on factors
     'FPCP', ...           % Fast Principal Component Pursuit
+    'GoDec' ...           % Go Decomposition
     'PCP', ...
     'noncvxRPCA',...
     % 'GoDec' ...           % Go Decomposition

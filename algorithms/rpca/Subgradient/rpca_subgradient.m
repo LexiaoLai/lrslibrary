@@ -15,6 +15,8 @@ function [L, S, output] = rpca_subgradient(M, opts)
 %                    the step size (default: 10)
 %     - decrease_tol: minimum decrease to be counted as improvement
 %                    (default: 1e-10)
+%     - stop_tol:    stop when consecutive objective change is below this
+%                    threshold (default: 1e-8)
 %     - min_step:    lower bound on the step size (default: 1e-20)
 %     - init_mode:   'random' (default) or 'svd' for initialization
 %     - init_scale:  scale for random initialization (default: 1e-6)
@@ -40,11 +42,14 @@ end
 [m, n] = size(M);
 
 k = get_opt(opts, 'rank', min(10, min(m, n)));
+max_iter = get_opt(opts, 'max_iter', 1000);
 max_iter = get_opt(opts, 'max_iter', 500);
 init_step = get_opt(opts, 'init_step', 1 / sqrt(m * n));
 shrink_factor = get_opt(opts, 'shrink', 0.5);
 patience = get_opt(opts, 'patience', 10);
 decrease_tol = get_opt(opts, 'decrease_tol', 1e-10);
+stop_tol = get_opt(opts, 'stop_tol', 1e-8);
+min_step = get_opt(opts, 'min_step', 1e-20);
 min_step = get_opt(opts, 'min_step', 1e-10);
 init_mode = get_opt(opts, 'init_mode', 'random');
 init_scale = get_opt(opts, 'init_scale', 1e-6);
@@ -80,12 +85,19 @@ hist_obj = zeros(max_iter, 1);
 step_history = zeros(max_iter, 1);
 best_f = inf;
 no_improve_count = 0;
+prev_f = inf;
 
 for t = 1:max_iter
     R = X * Y' - M;
     f_val = sum(abs(R), 'all') / (m * n);
     hist_obj(t) = f_val;
     step_history(t) = eta;
+
+    if t > 1 && abs(f_val - prev_f) < stop_tol
+        hist_obj = hist_obj(1:t);
+        step_history = step_history(1:t);
+        break;
+    end
 
     if f_val < best_f - decrease_tol
         best_f = f_val;
@@ -104,6 +116,7 @@ for t = 1:max_iter
 
     X = X - eta * grad_X;
     Y = Y - eta * grad_Y;
+    prev_f = f_val;
 end
 
 L = X * Y';
