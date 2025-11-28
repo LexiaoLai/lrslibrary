@@ -40,12 +40,12 @@ end
 [m, n] = size(M);
 
 k = get_opt(opts, 'rank', min(10, min(m, n)));
-max_iter = get_opt(opts, 'max_iter', 1000);
+max_iter = get_opt(opts, 'max_iter', 500);
 init_step = get_opt(opts, 'init_step', 1 / sqrt(m * n));
 shrink_factor = get_opt(opts, 'shrink', 0.5);
 patience = get_opt(opts, 'patience', 10);
 decrease_tol = get_opt(opts, 'decrease_tol', 1e-10);
-min_step = get_opt(opts, 'min_step', 1e-20);
+min_step = get_opt(opts, 'min_step', 1e-10);
 init_mode = get_opt(opts, 'init_mode', 'random');
 init_scale = get_opt(opts, 'init_scale', 1e-6);
 
