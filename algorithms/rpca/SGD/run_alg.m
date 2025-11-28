@@ -6,8 +6,8 @@
 opts = struct();
 if exist('params', 'var') && isstruct(params)
     opts_fields = {'rank','max_iter','batch_size','init_step', ...
-                  'step_schedule','eval_freq','init_mode','init_scale', ...
-                  'X0','Y0','random_seed'};
+                  'shrink','patience','decrease_tol','stop_tol','min_step', ...
+                  'init_mode','init_scale','X0','Y0','random_seed'};
     for i = 1:numel(opts_fields)
         name = opts_fields{i};
         if isfield(params, name)

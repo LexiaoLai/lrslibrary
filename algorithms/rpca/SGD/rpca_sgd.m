@@ -12,10 +12,14 @@ function [L, S, output] = rpca_sgd(M, opts)
 %     - batch_size:   number of sampled entries per iteration (default:
 %                     min(numel(M), ceil(0.01 * numel(M))))
 %     - init_step:    initial step size (default: 1 / sqrt(m*n))
-%     - step_schedule:'sqrt' (default) for eta = init_step/sqrt(t) or
-%                     'constant' to keep eta fixed
-%     - eval_freq:    compute full objective every eval_freq iterations
-%                     (default: 10)
+%     - shrink:       shrink factor for step size (default: 0.5)
+%     - patience:     number of non-decreasing iterations before shrinking
+%                     the step size (default: 10)
+%     - decrease_tol: minimum decrease to be counted as improvement
+%                     (default: 1e-10)
+%     - stop_tol:     stop when consecutive objective change is below this
+%                     threshold (default: 1e-8)
+%     - min_step:     lower bound on the step size (default: 1e-10)
 %     - init_mode:    'random' (default) or 'svd' for initialization
 %     - init_scale:   scale for random initialization (default: 1e-6)
 %     - X0, Y0:       custom initial factors (override init_mode)
@@ -23,15 +27,15 @@ function [L, S, output] = rpca_sgd(M, opts)
 %
 %   output is a struct containing:
 %     - X, Y:         final factors
-%     - hist_obj:     objective values at evaluation iterations
-%     - eval_iters:   iteration numbers corresponding to hist_obj
+%     - hist_obj:     objective values per iteration
+%     - step_history: step size used at each iteration
 %     - final_step:   final step size
 %
 %   Example:
 %     [L, S] = rpca_sgd(M, struct('rank', 5, 'batch_size', 5000));
 %
-%   This implementation mirrors the adaptive subgradient factorization but
-%   relies on stochastic batches for scalability.
+%   This implementation mirrors the adaptive subgradient factorization while
+%   relying on stochastic batches for scalability.
 
 if nargin < 2 || isempty(opts)
     opts = struct();
@@ -44,8 +48,11 @@ k = get_opt(opts, 'rank', min(10, min(m, n)));
 max_iter = get_opt(opts, 'max_iter', 1000);
 batch_size = get_opt(opts, 'batch_size', min(num_entries, ceil(0.01 * num_entries)));
 init_step = get_opt(opts, 'init_step', 1 / sqrt(m * n));
-step_schedule = get_opt(opts, 'step_schedule', 'sqrt');
-eval_freq = get_opt(opts, 'eval_freq', 10);
+shrink_factor = get_opt(opts, 'shrink', 0.5);
+patience = get_opt(opts, 'patience', 10);
+decrease_tol = get_opt(opts, 'decrease_tol', 1e-10);
+stop_tol = get_opt(opts, 'stop_tol', 1e-8);
+min_step = get_opt(opts, 'min_step', 1e-10);
 init_mode = get_opt(opts, 'init_mode', 'random');
 init_scale = get_opt(opts, 'init_scale', 1e-6);
 
@@ -75,18 +82,40 @@ else
     end
 end
 
-hist_obj = nan(max_iter, 1);
-eval_iters = zeros(max_iter, 1);
 eta = init_step;
+hist_obj = zeros(max_iter, 1);
+step_history = zeros(max_iter, 1);
+best_f = inf;
+no_improve_count = 0;
+prev_f = inf;
 
 for t = 1:max_iter
-    % Sample mini-batch of entries
+    R_full = X * Y' - M;
+    f_val = sum(abs(R_full), 'all') / (m * n);
+    hist_obj(t) = f_val;
+    step_history(t) = eta;
+
+    if t > 1 && abs(f_val - prev_f) < stop_tol
+        hist_obj = hist_obj(1:t);
+        step_history = step_history(1:t);
+        break;
+    end
+
+    if f_val < best_f - decrease_tol
+        best_f = f_val;
+        no_improve_count = 0;
+    else
+        no_improve_count = no_improve_count + 1;
+        if no_improve_count >= patience
+            eta = max(eta * shrink_factor, min_step);
+            no_improve_count = 0;
+        end
+    end
+
     idx = randi(num_entries, batch_size, 1);
     [rows, cols] = ind2sub([m, n], idx);
-
-    preds = sum(X(rows, :) .* Y(cols, :), 2);
-    residual = preds - M(idx);
-    G = sign(residual);
+    residual_batch = R_full(idx);
+    G = sign(residual_batch);
 
     grad_X = zeros(m, k);
     grad_Y = zeros(n, k);
@@ -95,30 +124,20 @@ for t = 1:max_iter
         grad_Y(:, j) = accumarray(cols, G .* X(rows, j), [n, 1], @sum, 0);
     end
 
-    step = get_step(step_schedule, eta, t);
-    scale = step / batch_size;
+    scale = eta / batch_size;
     X = X - scale * grad_X;
     Y = Y - scale * grad_Y;
-
-    if mod(t, eval_freq) == 0 || t == 1 || t == max_iter
-        R_full = X * Y' - M;
-        f_val = sum(abs(R_full), 'all') / (m * n);
-        hist_obj(t) = f_val;
-        eval_iters(t) = t;
-    end
+    prev_f = f_val;
 end
 
 L = X * Y';
 S = M - L;
 
-hist_obj = hist_obj(~isnan(hist_obj));
-eval_iters = eval_iters(eval_iters ~= 0);
-
 output.X = X;
 output.Y = Y;
 output.hist_obj = hist_obj;
-output.eval_iters = eval_iters;
-output.final_step = get_step(step_schedule, eta, max_iter);
+output.step_history = step_history;
+output.final_step = eta;
 end
 
 function val = get_opt(opts, name, default)
@@ -127,15 +146,5 @@ function val = get_opt(opts, name, default)
         val = opts.(name);
     else
         val = default;
-    end
-end
-
-function step = get_step(schedule, init_step, iter)
-%GET_STEP Step-size rule dispatcher.
-    switch lower(schedule)
-        case 'constant'
-            step = init_step;
-        otherwise % 'sqrt'
-            step = init_step / sqrt(iter);
     end
 end
