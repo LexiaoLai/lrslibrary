@@ -17,6 +17,7 @@ RPCA | ADM     | Alternating Direction Method (Yuan and Yang, 2009) | 2
 RPCA | LSADM   | LSADM (Goldfarb et al. 2010) | 1
 RPCA | L1F     | L1 Filtering (Liu et al. 2011) | 1
 RPCA | DECOLOR | Contiguous Outliers in the Low-Rank Representation (Zhou et al. 2011) | 1
+RPCA | Subgradient | Subgradient Method with Adaptive Step Size | 1
 RPCA | RegL1-ALM | Low-Rank Matrix Approximation under Robust L1-Norm (Zheng et al. 2012) | 1
 RPCA | GA | Grassmann Average (Hauberg et al. 2014) | 1
 RPCA | GM | Grassmann Median (Hauberg et al. 2014) | 1
