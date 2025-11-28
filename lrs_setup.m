@@ -63,7 +63,12 @@ run(lrs_conf.vl_path); % add VLFeat
 if(~isemptydir(lrs_conf.cvx_path,3) && exist(fullfile(lrs_conf.cvx_path,'cvx_setup.m'),'file'))
   addpath(lrs_conf.cvx_path); % add CVX
   disp('Running CVX setup!');
-  cvx_setup;
+  try
+    cvx_setup;
+  catch ME
+    warning(['CVX setup failed: ' ME.message]);
+    warning('Continuing without CVX. Install platform-specific CVX binaries to enable related solvers.');
+  end
 end
 
 disp('Setup finished!');
