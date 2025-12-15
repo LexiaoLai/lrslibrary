@@ -58,8 +58,16 @@ function [L, S] = fast_rpca_factorized(M, r, rhoS, opts)
         resid = (L_prev + S) - M;
         gradU = resid * V + opts.lambda * U;
         gradV = resid' * U + opts.lambda * V;
-        U = U - opts.step_size * gradU;
-        V = V - opts.step_size * gradV;
+
+        % Use per-iteration Lipschitz estimates to keep the step sizes
+        % stable; otherwise the factor norms can explode and produce NaNs.
+        normV2 = max(eps, norm(V, 2)^2) + opts.lambda;
+        normU2 = max(eps, norm(U, 2)^2) + opts.lambda;
+        stepU = opts.step_size / normV2;
+        stepV = opts.step_size / normU2;
+
+        U = U - stepU * gradU;
+        V = V - stepV * gradV;
 
         % Convergence check.
         rel_change = (norm(U * V' - L_prev, 'fro') + norm(S - S_prev, 'fro')) / normM;
