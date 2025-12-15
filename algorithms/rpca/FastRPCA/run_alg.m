@@ -1,6 +1,6 @@
-% Fast RPCA via nonconvex factorization (Shen and Sanghavi, 2016)
-% Suggested parameters follow the paper: alpha = 2*rhoS, alpha0 = 0.05,
-% eta = 1.25, rank = params.rank.
+% Fast RPCA via gradient descent (Cherapanamjeri et al., 2016)
+% Suggested parameters follow the paper: alpha = min(2*rhoS, 0.49),
+% step_size = 0.8, rank = params.rank.
 
 if ~exist('params','var') || ~isfield(params,'rank') || isempty(params.rank)
     params.rank = min(size(M));
@@ -10,10 +10,10 @@ if ~isfield(params,'sparsity') || isempty(params.sparsity)
 end
 
 opts = struct();
-opts.alpha = min(2 * params.sparsity, 0.5);
-opts.alpha0 = 0.05;
-opts.eta = 1.25;
-opts.max_iter = 200;
+opts.alpha = min(2 * params.sparsity, 0.49);
+opts.step_size = 0.8;
+opts.lambda = 0;
+opts.max_iter = 500;
 opts.tol = 1e-6;
 opts.verbose = false;
 

@@ -1,30 +1,30 @@
 function [L, S] = fast_rpca_factorized(M, r, rhoS, opts)
-%FAST_RPCA_FACTORIZED Implements the Fast RPCA algorithm from Shen and Sanghavi (2016).
-%   [L, S] = FAST_RPCA_FACTORIZED(M, r, rhoS, opts) returns low-rank and
-%   sparse components of M. The algorithm alternates between updating the
-%   sparse support via the operator T_alpha and refining low-rank factors.
+%FAST_RPCA_FACTORIZED Implements the Fast RPCA algorithm from Cherapanamjeri et al. (2016).
+%   [L, S] = FAST_RPCA_FACTORIZED(M, r, rhoS, opts) splits M into low-rank
+%   and sparse parts using the gradient-descent algorithm described in
+%   https://arxiv.org/pdf/1605.07784 with the paper's recommended parameters.
 %
-%   opts.alpha   - corruption estimator (default: min(2*rhoS, 0.5))
-%   opts.alpha0  - slack to avoid trimming true inliers (default: 0.05)
-%   opts.eta     - step size for the V update (default: 1.25)
-%   opts.max_iter- maximum iterations (default: 200)
-%   opts.tol     - relative tolerance for convergence (default: 1e-6)
-%   opts.verbose - display per-iteration progress
+%   opts.alpha      - fraction of entries to keep when thresholding (default: min(2*rhoS, 0.49))
+%   opts.step_size  - gradient step size (default: 0.8 as suggested in the paper)
+%   opts.lambda     - Frobenius regularization on factors (default: 0)
+%   opts.max_iter   - maximum iterations (default: 500)
+%   opts.tol        - relative tolerance for convergence (default: 1e-6)
+%   opts.verbose    - display per-iteration progress (default: false)
 
     if nargin < 4 || isempty(opts)
         opts = struct();
     end
     if ~isfield(opts, 'alpha') || isempty(opts.alpha)
-        opts.alpha = min(2 * rhoS, 0.5);
+        opts.alpha = min(2 * rhoS, 0.49);
     end
-    if ~isfield(opts, 'alpha0') || isempty(opts.alpha0)
-        opts.alpha0 = 0.05;
+    if ~isfield(opts, 'step_size') || isempty(opts.step_size)
+        opts.step_size = 0.8;
     end
-    if ~isfield(opts, 'eta') || isempty(opts.eta)
-        opts.eta = 1.25;
+    if ~isfield(opts, 'lambda') || isempty(opts.lambda)
+        opts.lambda = 0;
     end
     if ~isfield(opts, 'max_iter') || isempty(opts.max_iter)
-        opts.max_iter = 200;
+        opts.max_iter = 500;
     end
     if ~isfield(opts, 'tol') || isempty(opts.tol)
         opts.tol = 1e-6;
@@ -34,11 +34,6 @@ function [L, S] = fast_rpca_factorized(M, r, rhoS, opts)
     end
 
     [m, n] = size(M);
-    [U0, Sigma0, V0] = truncated_svd(M, r);
-    U_t = U0 * sqrt(Sigma0);
-    V_t = V0 * sqrt(Sigma0);
-    S_t = zeros(m, n);
-
     normM = norm(M, 'fro');
     if normM == 0
         L = zeros(size(M));
@@ -46,19 +41,28 @@ function [L, S] = fast_rpca_factorized(M, r, rhoS, opts)
         return;
     end
 
+    % Initialization: hard threshold and truncated SVD.
+    S = hard_threshold_fraction(M, opts.alpha);
+    [U0, Sigma0, V0] = truncated_svd(M - S, r);
+    U = U0 * sqrt(Sigma0);
+    V = V0 * sqrt(Sigma0);
+
     for iter = 1:opts.max_iter
-        prev_L = U_t * V_t';
-        prev_S = S_t;
+        L_prev = U * V';
+        S_prev = S;
 
-        S_t = T_alpha(M - U_t * V_t', opts.alpha + opts.alpha0);
-        A = truncated_svd(M - S_t, r);
-        V_gram = V_t' * V_t;
-        U_t = A * (V_t / (V_gram + 1e-8 * eye(size(V_gram))));
+        % Sparse update via hard thresholding.
+        S = hard_threshold_fraction(M - L_prev, opts.alpha);
 
-        trimmed_M = T_alpha(M, opts.alpha + opts.alpha0);
-        V_t = opts.eta * V_t - opts.eta * (U_t' * (U_t * V_t - trimmed_M));
+        % Gradient step on factors.
+        resid = (L_prev + S) - M;
+        gradU = resid * V + opts.lambda * U;
+        gradV = resid' * U + opts.lambda * V;
+        U = U - opts.step_size * gradU;
+        V = V - opts.step_size * gradV;
 
-        rel_change = (norm(U_t * V_t' - prev_L, 'fro') + norm(S_t - prev_S, 'fro')) / normM;
+        % Convergence check.
+        rel_change = (norm(U * V' - L_prev, 'fro') + norm(S - S_prev, 'fro')) / normM;
         if opts.verbose
             fprintf('Iter %d: rel change = %.3e\n', iter, rel_change);
         end
@@ -67,44 +71,23 @@ function [L, S] = fast_rpca_factorized(M, r, rhoS, opts)
         end
     end
 
-    L = U_t * V_t';
-    S = S_t;
+    L = U * V';
 end
 
-function S = T_alpha(A, alpha)
-%T_ALPHA Keep the largest-magnitude entries row- and column-wise.
+function S = hard_threshold_fraction(A, alpha)
+%HARD_THRESHOLD_FRACTION Keeps the largest |A| entries by fraction alpha.
     alpha = max(0, min(alpha, 1));
     if alpha == 0
         S = zeros(size(A));
         return;
     end
-    [m, n] = size(A);
-    absA = abs(A);
 
-    row_thresh = zeros(m, 1);
-    for i = 1:m
-        row_thresh(i) = frac_threshold(absA(i, :), alpha);
-    end
-    col_thresh = zeros(1, n);
-    for j = 1:n
-        col_thresh(j) = frac_threshold(absA(:, j), alpha);
-    end
-
-    row_mask = bsxfun(@ge, absA, row_thresh);
-    col_mask = bsxfun(@ge, absA, col_thresh);
-    mask = row_mask | col_mask;
+    absA = abs(A(:));
+    k = max(1, ceil(alpha * numel(absA)));
+    sorted_vals = sort(absA, 'descend');
+    tau = sorted_vals(k);
+    mask = abs(A) >= tau;
     S = A .* mask;
-end
-
-function tau = frac_threshold(vec, alpha)
-    vec = abs(vec(:));
-    if isempty(vec)
-        tau = 0;
-        return;
-    end
-    k = max(1, ceil(alpha * numel(vec)));
-    sorted_vals = sort(vec, 'ascend');
-    tau = sorted_vals(max(numel(sorted_vals) - k + 1, 1));
 end
 
 function [U, Sigma, V] = truncated_svd(A, r)
@@ -116,9 +99,5 @@ function [U, Sigma, V] = truncated_svd(A, r)
         U = U(:, 1:r);
         Sigma = Sigma(1:r, 1:r);
         V = V(:, 1:r);
-    end
-
-    if nargout == 1
-        U = U * Sigma * V';
     end
 end
