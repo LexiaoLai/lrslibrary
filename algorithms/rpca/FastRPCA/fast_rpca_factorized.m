@@ -1,8 +1,11 @@
 function [L, S] = fast_rpca_factorized(M, r, rhoS, opts)
-%FAST_RPCA_FACTORIZED Implements the Fast RPCA algorithm from Cherapanamjeri et al. (2016).
+%FAST_RPCA_FACTORIZED Implements the Fast RPCA algorithm from Yi et al. (2016).
 %   [L, S] = FAST_RPCA_FACTORIZED(M, r, rhoS, opts) splits M into low-rank
-%   and sparse parts using the gradient-descent algorithm described in
-%   https://arxiv.org/pdf/1605.07784 with the paper's recommended parameters.
+%   and sparse parts following Algorithm 1 in "Fast Algorithms for Robust PCA
+%   via Gradient Descent" (arXiv:1605.07784). The defaults mirror the
+%   recommended settings in the paper: initialize with a hard-thresholded SVD,
+%   update the sparse component with the hard-thresholding operator, and take
+%   projected gradient steps on the factors.
 %
 %   opts.alpha      - fraction of entries to keep when thresholding (default: min(2*rhoS, 0.49))
 %   opts.step_size  - gradient step size (default: 0.8 as suggested in the paper)
