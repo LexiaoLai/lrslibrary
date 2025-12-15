@@ -10,8 +10,8 @@ if ~isfield(params,'sparsity') || isempty(params.sparsity)
 end
 
 opts = struct();
-opts.max_iter = 200;
-opts.tol = 1e-6;
+opts.max_iter = 2000;
+opts.tol = 1e-10;
 opts.sparsity = params.sparsity;
 opts.verbose = false;
 

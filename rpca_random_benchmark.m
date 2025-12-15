@@ -8,17 +8,16 @@ clear; clc;
 % ------------------------------------------------------------
 % User-configurable parameters
 % ------------------------------------------------------------
-num_trials = 10;           % Number of random instances to average over
-m = 3000;                 % Number of rows
-n = 2000;                 % Number of columns
+num_trials = 1;           % Number of random instances to average over
+m = 300;                 % Number of rows
+n = 200;                 % Number of columns
 r_true = 10;               % True rank of the low-rank component
 sparsity = 0.1;           % Fraction of corrupted entries in the sparse part
 sparse_scale = 10;        % Magnitude of sparse corruption
 % 
 % algorithms = {'Subgradient'};
-
-algorithms = {'Subgradient','PCP','IALM','EALM','AS-RPCA','FPCP', ...
-    'AccAltProj','FastRPCA','BridgingRPCA'};
+algorithms = {'FastRPCA'};
+% algorithms = {'Subgradient','IALM','AccAltProj','FastRPCA','BridgingRPCA'};%'PCP','EALM','AS-RPCA','FPCP'
 % alg_list = get_algorithm_list('RPCA');
 % algorithms = alg_list(:, 1); % Algorithm IDs
 % algorithms = algorithms(~strcmp(algorithms, '-')); % Remove separators
