@@ -11,10 +11,10 @@ end
 
 opts = struct();
 opts.alpha = min(2 * params.sparsity, 0.49);
-opts.step_size = 0.8;
+opts.step_size = .8;
 opts.lambda = 0;
-opts.max_iter = 500;
-opts.tol = 1e-6;
+opts.max_iter = 1000;
+opts.tol = 1e-10;
 opts.verbose = false;
 
 [L, S] = fast_rpca_factorized(M, params.rank, params.sparsity, opts);
