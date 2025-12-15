@@ -8,17 +8,21 @@ clear; clc;
 % ------------------------------------------------------------
 % User-configurable parameters
 % ------------------------------------------------------------
-num_trials = 1;           % Number of random instances to average over
-m = 1000;                 % Number of rows
-n = 1000;                 % Number of columns
-r_true = 5;               % True rank of the low-rank component
+num_trials = 10;           % Number of random instances to average over
+m = 3000;                 % Number of rows
+n = 2000;                 % Number of columns
+r_true = 10;               % True rank of the low-rank component
 sparsity = 0.1;           % Fraction of corrupted entries in the sparse part
 sparse_scale = 10;        % Magnitude of sparse corruption
+% 
+% algorithms = {'Subgradient'};
 
-alg_list = get_algorithm_list('RPCA');
-algorithms = alg_list(:, 1); % Algorithm IDs
-algorithms = algorithms(~strcmp(algorithms, '-')); % Remove separators
-algorithms = algorithms(~strcmpi(algorithms, 'SGD')); % Skip SGD
+algorithms = {'Subgradient','PCP','IALM','EALM','AS-RPCA','FPCP'};
+% alg_list = get_algorithm_list('RPCA');
+% algorithms = alg_list(:, 1); % Algorithm IDs
+% algorithms = algorithms(~strcmp(algorithms, '-')); % Remove separators
+% algorithms = algorithms(~strcmpi(algorithms, 'SGD')); % Skip SGD
+% algorithms = algorithms(~strcmpi(algorithms, 'SVT')); % Skip SVT
 
 safe_algorithms = cellfun(@matlab.lang.makeValidName, algorithms, ...
     'UniformOutput', false);
@@ -47,7 +51,7 @@ for a = 1:numel(algorithms)
 end
 
 for t = 1:num_trials
-    rng(base_seed + t - 1);
+    % rng(base_seed + t - 1,'twister');
     [M, L_true, S_true] = generate_rpca_instance(m, n, r_true, sparsity, sparse_scale);
 
     fprintf('\nTrial %d/%d\n', t, num_trials);
@@ -63,6 +67,7 @@ for t = 1:num_trials
             L_norm = norm(L_true, 'fro');
             if isfield(out, 'L') && ~isempty(out.L) && L_norm > 0
                 results.(key).rel_err_L(t) = norm(out.L - L_true, 'fro') / L_norm;
+                results.(key).rel_err_L(t)
             else
                 results.(key).rel_err_L(t) = NaN;
             end
