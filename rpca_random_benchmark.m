@@ -17,8 +17,8 @@ sparse_scale = 10;        % Magnitude of sparse corruption
 % 
 % algorithms = {'Subgradient'};
 
-% algorithms = {'Subgradient','PCP','IALM','EALM','AS-RPCA','FPCP'}
-algorithms = {   'Subgradient','IALM','AccAltProj','FastRPCA'};
+algorithms = {'Subgradient','PCP','IALM','EALM','AS-RPCA','FPCP', ...
+    'AccAltProj','FastRPCA','BridgingRPCA'};
 % alg_list = get_algorithm_list('RPCA');
 % algorithms = alg_list(:, 1); % Algorithm IDs
 % algorithms = algorithms(~strcmp(algorithms, '-')); % Remove separators
