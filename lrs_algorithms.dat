@@ -53,6 +53,9 @@ RPCA | TFOCS-IC | TFOCS with inequality constraints (Becker et al. 2011) | 2
 RPCA | GoDec    | Go Decomposition (Zhou and Tao, 2011) | 1
 RPCA | SSGoDec  | Semi-Soft GoDec (Zhou and Tao, 2011) | 1
 RPCA | GreGoDec | Greedy Semi-Soft GoDec Algotithm (Zhou and Tao, 2013) | 1
+RPCA | AccAltProj | Accelerated Alternating Projections for RPCA (Cai et al. 2019) | 1
+RPCA | BridgingRPCA | Nonconvex RPCA via alternating minimization (Zhang et al., 2021) | 1
+RPCA | FastRPCA | Fast RPCA via gradient descent (Cherapanamjeri et al., 2016) | 1
 ---
 --- ST (Subspace Tracking) ---
 ST | GRASTA  | Grassmannian Robust Adaptive Subspace Tracking Algorithm (He et al. 2012) | 1
